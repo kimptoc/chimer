@@ -5,4 +5,9 @@
     <string name="notif_channel_ringing_desc">Notifications shown when a timer expires</string>
     <string name="notif_title">Timer finished</string>
     <string name="notif_action_stop">Stop</string>
+    <string name="notif_action_cancel">Cancel</string>
+    <string name="notif_channel_running">Timer running</string>
+    <string name="notif_channel_running_desc">Persistent indicator while a timer is counting down</string>
+    <string name="notif_running_title">Timer running</string>
+    <string name="notif_running_text_set">Set for %1$d min</string>
 </resources>

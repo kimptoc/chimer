@@ -16,35 +16,92 @@ import net.kimptoc.timerwithauto.R
 object Notifier {
 
     const val CHANNEL_RINGING = "alarm_ringing"
+    const val CHANNEL_RUNNING = "timer_running"
     const val NOTIF_ID_RINGING = 1
+    const val NOTIF_ID_RUNNING = 2
 
     fun ensureChannel(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val existing = nm.getNotificationChannel(CHANNEL_RINGING)
-        if (existing != null) return
-        val channel = NotificationChannel(
-            CHANNEL_RINGING,
-            context.getString(R.string.notif_channel_ringing),
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            description = context.getString(R.string.notif_channel_ringing_desc)
-            setSound(null, null) // we play audio ourselves
-            enableVibration(false)
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+
+        if (nm.getNotificationChannel(CHANNEL_RINGING) == null) {
+            val channel = NotificationChannel(
+                CHANNEL_RINGING,
+                context.getString(R.string.notif_channel_ringing),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = context.getString(R.string.notif_channel_ringing_desc)
+                setSound(null, null) // we play audio ourselves
+                enableVibration(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            nm.createNotificationChannel(channel)
+            // Make Auto host aware of the channel too (needed for heads-up on car screen)
+            val compatChannel = NotificationChannelCompat.Builder(
+                CHANNEL_RINGING,
+                NotificationManager.IMPORTANCE_HIGH,
+            )
+                .setName(context.getString(R.string.notif_channel_ringing))
+                .setDescription(context.getString(R.string.notif_channel_ringing_desc))
+                .setSound(null, null)
+                .setVibrationEnabled(false)
+                .build()
+            CarNotificationManager.from(context).createNotificationChannel(compatChannel)
         }
-        nm.createNotificationChannel(channel)
-        // Make Auto host aware of the channel too (needed for heads-up on car screen)
-        val compatChannel = NotificationChannelCompat.Builder(
-            CHANNEL_RINGING,
-            NotificationManager.IMPORTANCE_HIGH,
-        )
-            .setName(context.getString(R.string.notif_channel_ringing))
-            .setDescription(context.getString(R.string.notif_channel_ringing_desc))
-            .setSound(null, null)
-            .setVibrationEnabled(false)
-            .build()
-        CarNotificationManager.from(context).createNotificationChannel(compatChannel)
+
+        if (nm.getNotificationChannel(CHANNEL_RUNNING) == null) {
+            val channel = NotificationChannel(
+                CHANNEL_RUNNING,
+                context.getString(R.string.notif_channel_running),
+                NotificationManager.IMPORTANCE_LOW,  // silent, no heads-up
+            ).apply {
+                description = context.getString(R.string.notif_channel_running_desc)
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            nm.createNotificationChannel(channel)
+        }
     }
+
+    fun buildRunningNotification(
+        context: Context,
+        deadlineEpochMs: Long,
+        durationMinutes: Int,
+        cancelIntent: PendingIntent,
+    ): Notification {
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            REQ_RUNNING_CONTENT,
+            Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        return NotificationCompat.Builder(context, CHANNEL_RUNNING)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(context.getString(R.string.notif_running_title))
+            .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setChronometerCountDown(true)
+            .setWhen(deadlineEpochMs)
+            .setContentIntent(contentIntent)
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                context.getString(R.string.notif_action_cancel),
+                cancelIntent,
+            )
+            .build()
+    }
+
+    private const val REQ_RUNNING_CONTENT = 3001
 
     fun buildRingingNotification(context: Context, stopIntent: PendingIntent): Notification {
         val contentIntent = PendingIntent.getActivity(
