@@ -67,7 +67,7 @@ class TimerCarScreen(carContext: CarContext) : Screen(carContext) {
 
     private fun idleTemplate(): MessageTemplate =
         MessageTemplate.Builder("No timer running.\nStart one from your phone.")
-            .setTitle("Timer With Auto")
+            .setTitle("Chimer")
             .build()
 
     private fun runningTemplate(state: TimerState.Running): MessageTemplate {
@@ -96,7 +96,7 @@ class TimerCarScreen(carContext: CarContext) : Screen(carContext) {
             }
             .build()
         return MessageTemplate.Builder("Timer finished")
-            .setTitle("Timer With Auto")
+            .setTitle("Chimer")
             .addAction(stop)
             .build()
     }

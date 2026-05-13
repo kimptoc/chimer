@@ -73,7 +73,7 @@ private fun IdleView(recents: List<Int>, onStart: (Int) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Timer With Auto", style = MaterialTheme.typography.headlineSmall)
+        Text("Chimer", style = MaterialTheme.typography.headlineSmall)
 
         MinutesPicker(value = minutes, onValueChange = { minutes = it })
 

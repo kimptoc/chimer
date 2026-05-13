@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TimerWithAuto"
+rootProject.name = "Chimer"
 include(":app")

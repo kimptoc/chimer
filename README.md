@@ -1,6 +1,6 @@
-# Timer With Auto
+# Chimer
 
-A simple Android countdown-timer app with an Android Auto cancel surface.
+A simple Android countdown-timer app — chimes when time's up, with an Android Auto cancel surface.
 
 - Set a timer from the phone (minutes; defaults to your most-recent duration, plus a list of the last five used)
 - A four-note chime + vibration loops on expiry, auto-stopping after 2 minutes if you don't cancel
