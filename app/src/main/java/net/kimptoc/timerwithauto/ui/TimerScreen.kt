@@ -66,7 +66,7 @@ fun TimerScreen(viewModel: TimerViewModel) {
 
 @Composable
 private fun IdleView(recents: List<Int>, onStart: (Int) -> Unit) {
-    var minutes by remember { mutableStateOf(10) }
+    var minutes by remember { mutableStateOf(recents.firstOrNull() ?: 10) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
