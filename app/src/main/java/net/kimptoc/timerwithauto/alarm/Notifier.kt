@@ -6,6 +6,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.car.app.notification.CarAppExtender
+import androidx.car.app.notification.CarNotificationManager
+import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import net.kimptoc.timerwithauto.MainActivity
 import net.kimptoc.timerwithauto.R
@@ -30,6 +33,17 @@ object Notifier {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         nm.createNotificationChannel(channel)
+        // Make Auto host aware of the channel too (needed for heads-up on car screen)
+        val compatChannel = NotificationChannelCompat.Builder(
+            CHANNEL_RINGING,
+            NotificationManager.IMPORTANCE_HIGH,
+        )
+            .setName(context.getString(R.string.notif_channel_ringing))
+            .setDescription(context.getString(R.string.notif_channel_ringing_desc))
+            .setSound(null, null)
+            .setVibrationEnabled(false)
+            .build()
+        CarNotificationManager.from(context).createNotificationChannel(compatChannel)
     }
 
     fun buildRingingNotification(context: Context, stopIntent: PendingIntent): Notification {
@@ -41,6 +55,18 @@ object Notifier {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+
+        val carExtender = CarAppExtender.Builder()
+            .setContentTitle(context.getString(R.string.notif_title))
+            .setContentText(context.getString(R.string.notif_action_stop))
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setImportance(NotificationManager.IMPORTANCE_HIGH)
+            .addAction(
+                android.R.drawable.ic_media_pause,
+                context.getString(R.string.notif_action_stop),
+                stopIntent,
+            )
+            .build()
 
         return NotificationCompat.Builder(context, CHANNEL_RINGING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -55,6 +81,7 @@ object Notifier {
             .addAction(android.R.drawable.ic_media_pause,
                        context.getString(R.string.notif_action_stop),
                        stopIntent)
+            .extend(carExtender)
             .build()
     }
 }
