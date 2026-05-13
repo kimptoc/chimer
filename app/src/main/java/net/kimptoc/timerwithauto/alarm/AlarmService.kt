@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +28,7 @@ class AlarmService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.i(TAG, "onCreate")
         val container = (application as TimerApp).container
         audio = container.audioPlayer
         vibrator = container.vibratorWrapper
@@ -34,6 +36,7 @@ class AlarmService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.i(TAG, "onStartCommand action=${intent?.action} isRinging=$isRinging")
         when (intent?.action) {
             ACTION_STOP -> { stopRinging(); return START_NOT_STICKY }
         }
@@ -51,14 +54,22 @@ class AlarmService : Service() {
         )
         val notif = Notifier.buildRingingNotification(this, stopPi)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                Notifier.NOTIF_ID_RINGING,
-                notif,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
-            )
-        } else {
-            startForeground(Notifier.NOTIF_ID_RINGING, notif)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    Notifier.NOTIF_ID_RINGING,
+                    notif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            } else {
+                startForeground(Notifier.NOTIF_ID_RINGING, notif)
+            }
+            Log.i(TAG, "startForeground OK")
+        } catch (t: Throwable) {
+            Log.e(TAG, "startForeground failed", t)
+            isRinging = false
+            stopSelf()
+            return START_NOT_STICKY
         }
 
         scope.launch {
@@ -66,8 +77,8 @@ class AlarmService : Service() {
                 .setRinging(isRinging = true, durationMinutes = durationMinutes)
         }
 
-        audio.startLoop()
-        vibrator.startLoop()
+        try { audio.startLoop() } catch (t: Throwable) { Log.e(TAG, "audio.startLoop failed", t) }
+        try { vibrator.startLoop() } catch (t: Throwable) { Log.e(TAG, "vibrator.startLoop failed", t) }
 
         stopRunnable = Runnable { stopRinging() }
         handler.postDelayed(stopRunnable!!, AUTO_STOP_MS)
@@ -77,6 +88,7 @@ class AlarmService : Service() {
 
     private fun stopRinging() {
         if (!isRinging) return
+        Log.i(TAG, "stopRinging")
         isRinging = false
         stopRunnable?.let { handler.removeCallbacks(it) }
         stopRunnable = null
@@ -98,6 +110,7 @@ class AlarmService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        private const val TAG = "TimerAlarmService"
         const val EXTRA_DURATION_MINUTES = "duration_minutes"
         const val ACTION_STOP = "net.kimptoc.timerwithauto.action.STOP_ALARM"
         const val AUTO_STOP_MS = 2L * 60L * 1000L  // 2 minutes
