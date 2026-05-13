@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Icon
+import android.os.Build
 import androidx.car.app.notification.CarAppExtender
 import androidx.car.app.notification.CarNotificationManager
 import androidx.core.app.NotificationChannelCompat
@@ -49,10 +51,12 @@ object Notifier {
         }
 
         if (nm.getNotificationChannel(CHANNEL_RUNNING) == null) {
+            // DEFAULT importance (silent via setSound(null)) is required for the
+            // Android 16 promoted-ongoing / Live-Update chip on the status bar.
             val channel = NotificationChannel(
                 CHANNEL_RUNNING,
                 context.getString(R.string.notif_channel_running),
-                NotificationManager.IMPORTANCE_LOW,  // silent, no heads-up
+                NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
                 description = context.getString(R.string.notif_channel_running_desc)
                 setSound(null, null)
@@ -68,6 +72,7 @@ object Notifier {
         context: Context,
         deadlineEpochMs: Long,
         durationMinutes: Int,
+        nowEpochMs: Long,
         cancelIntent: PendingIntent,
     ): Notification {
         val contentIntent = PendingIntent.getActivity(
@@ -79,11 +84,54 @@ object Notifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        // Android 16 (API 36) — use Notification.ProgressStyle and request promoted ongoing,
+        // which renders as the status-bar chip and Live-Updates pill on the lockscreen.
+        if (Build.VERSION.SDK_INT >= 36) {
+            val totalMs = durationMinutes * 60_000L
+            val elapsed = (nowEpochMs - (deadlineEpochMs - totalMs)).coerceIn(0L, totalMs)
+            val progress = if (totalMs == 0L) 0 else ((elapsed * 100L) / totalMs).toInt()
+            val style = Notification.ProgressStyle()
+                .setProgress(progress)
+                .setProgressTrackerIcon(
+                    Icon.createWithResource(context, android.R.drawable.ic_lock_idle_alarm)
+                )
+            val builder = Notification.Builder(context, CHANNEL_RUNNING)
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(context.getString(R.string.notif_running_title))
+                .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
+                .setOngoing(true)
+                .setShowWhen(true)
+                .setOnlyAlertOnce(true)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setWhen(deadlineEpochMs)
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setStyle(style)
+                .setContentIntent(contentIntent)
+                .addAction(
+                    Notification.Action.Builder(
+                        Icon.createWithResource(context, android.R.drawable.ic_menu_close_clear_cancel),
+                        context.getString(R.string.notif_action_cancel),
+                        cancelIntent,
+                    ).build()
+                )
+            // Ask the system to promote this as a Live Update / status bar chip.
+            // Reflection because the setter isn't on every preview SDK uniformly named — fall back silently.
+            runCatching {
+                Notification.Builder::class.java
+                    .getMethod("requestPromotedOngoing", Boolean::class.javaPrimitiveType)
+                    .invoke(builder, true)
+            }
+            return builder.build()
+        }
+
+        // Pre-API-36 fallback — ongoing chronometer notification.
         return NotificationCompat.Builder(context, CHANNEL_RUNNING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(context.getString(R.string.notif_running_title))
             .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)

@@ -30,6 +30,7 @@ class AppContainer(context: Context) {
     val runningTimerNotifier: RunningTimerNotifier = RunningTimerNotifier(
         context = context.applicationContext,
         repository = timerRepository,
+        clock = clock,
         scope = applicationScope,
     )
 }
