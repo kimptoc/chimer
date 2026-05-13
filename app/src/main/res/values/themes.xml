@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.TimerWithAuto" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Base Material3 DayNight theme. Compose owns most styling at runtime; this
+         applies to anything outside the Compose tree (splash window, etc.). -->
+    <style name="Theme.TimerWithAuto" parent="Theme.Material3.DayNight.NoActionBar" />
 </resources>
