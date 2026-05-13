@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.car.app)
+    implementation(libs.androidx.media)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
