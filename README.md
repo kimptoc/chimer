@@ -1,5 +1,7 @@
 # Chimer
 
+[![CI](https://github.com/kimptoc/chimer/actions/workflows/ci.yml/badge.svg)](https://github.com/kimptoc/chimer/actions/workflows/ci.yml)
+
 A simple Android countdown-timer app — chimes when time's up, with an Android Auto cancel surface.
 
 - Set a timer from the phone (minutes; defaults to your most-recent duration, plus a list of the last five used)
