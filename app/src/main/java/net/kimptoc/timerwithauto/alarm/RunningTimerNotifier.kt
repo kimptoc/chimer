@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import net.kimptoc.timerwithauto.R
@@ -36,7 +37,16 @@ class RunningTimerNotifier(
         scope.launch {
             repository.state.collectLatest { state ->
                 when (state) {
-                    is TimerState.Running -> post(state)
+                    is TimerState.Running -> {
+                        // One UI's Now Bar pill drops the entry once the MediaSession's
+                        // interpolated position passes duration, and some launchers GC the
+                        // ongoing notification if it isn't re-posted. Refresh both
+                        // periodically to keep the pills alive for the full countdown.
+                        while (true) {
+                            post(state)
+                            delay(REFRESH_INTERVAL_MS)
+                        }
+                    }
                     is TimerState.Idle, is TimerState.Ringing -> cancel()
                 }
             }
@@ -81,5 +91,6 @@ class RunningTimerNotifier(
 
     companion object {
         private const val REQ_CANCEL = 4001
+        private const val REFRESH_INTERVAL_MS = 20_000L
     }
 }
