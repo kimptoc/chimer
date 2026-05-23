@@ -40,7 +40,7 @@ Open in Android Studio normally; everything is Gradle Kotlin DSL.
 
 This app is **not Play-ready** out of the box:
 
-- The `CarAppService` declares `androidx.car.app.category.IOT`. That category is intended for Android Automotive OS (the full car OS), not Android Auto (phone projection). On a production Android Auto head unit it will typically **not appear** in the launcher unless developer mode is enabled. None of the user-visible categories (`NAVIGATION`, `POI`, `MESSAGING`) really fit a timer.
+- The `CarAppService` declares `androidx.car.app.category.POI`. POI is the least-wrong of the AA-allowed categories (`NAVIGATION`, `POI`, `MESSAGING`, `CALLING`) — none of them genuinely fit a timer, so this app is not Play-publishable for AA without a redesign. POI is used here purely so the app surfaces in the projected launcher on real head units when sideloaded with developer mode on.
 - `TimerCarAppService.createHostValidator()` returns `HostValidator.ALLOW_ALL_HOSTS_VALIDATOR`. Useful for development; replace with the strict validator before any production release.
 
 For personal/sideloaded use these are fine. To use it in your own car: enable developer mode in the Android Auto app on your phone, then add this app from "Unknown sources".
