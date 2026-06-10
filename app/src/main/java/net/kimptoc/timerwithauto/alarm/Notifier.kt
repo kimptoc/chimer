@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.support.v4.media.session.MediaSessionCompat
-import androidx.car.app.notification.CarAppExtender
 import androidx.car.app.notification.CarNotificationManager
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
@@ -108,41 +107,17 @@ object Notifier {
     private const val REQ_RUNNING_CONTENT = 3001
 
     fun buildRingingNotification(context: Context, stopIntent: PendingIntent): Notification {
-        val contentIntent = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val carExtender = CarAppExtender.Builder()
-            .setContentTitle(context.getString(R.string.notif_title))
-            .setContentText(context.getString(R.string.notif_action_stop))
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setImportance(NotificationManager.IMPORTANCE_HIGH)
-            .addAction(
-                android.R.drawable.ic_media_pause,
-                context.getString(R.string.notif_action_stop),
-                stopIntent,
-            )
-            .build()
-
         return NotificationCompat.Builder(context, CHANNEL_RINGING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(context.getString(R.string.notif_title))
-            .setContentText(context.getString(R.string.notif_channel_ringing))
+            .setContentText(context.getString(R.string.notif_action_stop))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setFullScreenIntent(contentIntent, true)
-            .setContentIntent(contentIntent)
             .addAction(android.R.drawable.ic_media_pause,
                        context.getString(R.string.notif_action_stop),
                        stopIntent)
-            .extend(carExtender)
             .build()
     }
 }
