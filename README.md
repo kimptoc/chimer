@@ -8,7 +8,7 @@ A simple Android countdown-timer app — chimes when time's up, with an Android 
 - A four-note chime + vibration loops on expiry, auto-stopping after 2 minutes if you don't cancel
 - Survives the app being killed and the device being rebooted
 - When connected to Android Auto, the running countdown and a big STOP button show on the head unit
-- A heads-up alert pops on Android Auto when the alarm fires even if another car app is active
+- When the timer expires, the car screen shows a prominent red STOP button (no more "unlock screen" UI)
 
 ## Tech stack
 
@@ -40,7 +40,7 @@ Open in Android Studio normally; everything is Gradle Kotlin DSL.
 
 This app is **not Play-ready** out of the box:
 
-- The `CarAppService` declares `androidx.car.app.category.POI`. POI is the least-wrong of the AA-allowed categories (`NAVIGATION`, `POI`, `MESSAGING`, `CALLING`) — none of them genuinely fit a timer, so this app is not Play-publishable for AA without a redesign. POI is used here purely so the app surfaces in the projected launcher on real head units when sideloaded with developer mode on.
+- The `CarAppService` declares `androidx.car.app.category.IOT`. This is for sideloaded/development use only; Android Auto category support is host-controlled and not Play-publishable for this timer app without a different product shape.
 - `TimerCarAppService.createHostValidator()` returns `HostValidator.ALLOW_ALL_HOSTS_VALIDATOR`. Useful for development; replace with the strict validator before any production release.
 
 For personal/sideloaded use these are fine. To use it in your own car: enable developer mode in the Android Auto app on your phone, then add this app from "Unknown sources".
