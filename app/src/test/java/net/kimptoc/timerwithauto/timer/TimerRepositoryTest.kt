@@ -72,13 +72,14 @@ class TimerRepositoryTest {
 
     @Test fun `startTimer updates recents MRU`() = runTest(UnconfinedTestDispatcher()) {
         val repo = newRepo()
-        advanceUntilIdle()
-        repo.startTimer(7)
-        advanceUntilIdle()
-        assertEquals(listOf(7, 5, 12, 60), repo.recents.value)
-        repo.startTimer(12)
-        advanceUntilIdle()
-        assertEquals(listOf(12, 7, 5, 60), repo.recents.value)
+        repo.recents.test {
+            assertEquals(listOf(5, 12, 60), awaitItem())
+            repo.startTimer(7)
+            assertEquals(listOf(7, 5, 12, 60), awaitItem())
+            repo.startTimer(12)
+            assertEquals(listOf(12, 7, 5, 60), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test fun `cancelTimer clears deadline and calls scheduler`() = runTest(UnconfinedTestDispatcher()) {

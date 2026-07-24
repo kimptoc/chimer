@@ -5,8 +5,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import net.kimptoc.timerwithauto.alarm.AudioPlayer
+import net.kimptoc.timerwithauto.alarm.CarConnectionChecker
 import net.kimptoc.timerwithauto.alarm.MediaPlayerAudioPlayer
 import net.kimptoc.timerwithauto.alarm.RunningTimerNotifier
+import net.kimptoc.timerwithauto.alarm.SystemCarConnectionChecker
 import net.kimptoc.timerwithauto.alarm.SystemVibratorWrapper
 import net.kimptoc.timerwithauto.alarm.TimerMediaSession
 import net.kimptoc.timerwithauto.alarm.VibratorWrapper
@@ -28,6 +30,7 @@ class AppContainer(context: Context) {
     )
     val audioPlayer: AudioPlayer = MediaPlayerAudioPlayer(context.applicationContext)
     val vibratorWrapper: VibratorWrapper = SystemVibratorWrapper(context.applicationContext)
+    val carConnectionChecker: CarConnectionChecker = SystemCarConnectionChecker(context.applicationContext)
     val timerMediaSession: TimerMediaSession = TimerMediaSession(context.applicationContext)
     val runningTimerNotifier: RunningTimerNotifier = RunningTimerNotifier(
         context = context.applicationContext,
