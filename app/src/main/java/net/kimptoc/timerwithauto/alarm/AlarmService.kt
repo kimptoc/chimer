@@ -25,6 +25,7 @@ class AlarmService : Service() {
 
     private lateinit var audio: AudioPlayer
     private lateinit var vibrator: VibratorWrapper
+    private lateinit var carConnectionChecker: CarConnectionChecker
 
     override fun onCreate() {
         super.onCreate()
@@ -32,6 +33,7 @@ class AlarmService : Service() {
         val container = (application as TimerApp).container
         audio = container.audioPlayer
         vibrator = container.vibratorWrapper
+        carConnectionChecker = container.carConnectionChecker
         Notifier.ensureChannel(this)
     }
 
@@ -77,11 +79,14 @@ class AlarmService : Service() {
                 .setRinging(isRinging = true, durationMinutes = durationMinutes)
         }
 
-        try { audio.startLoop() } catch (t: Throwable) { Log.e(TAG, "audio.startLoop failed", t) }
+        val ringProfile = RingProfile.forCarConnected(carConnectionChecker.isConnected())
+        Log.i(TAG, "ringProfile=$ringProfile")
+
+        try { audio.startLoop(ringProfile.soundRes) } catch (t: Throwable) { Log.e(TAG, "audio.startLoop failed", t) }
         try { vibrator.startLoop() } catch (t: Throwable) { Log.e(TAG, "vibrator.startLoop failed", t) }
 
         stopRunnable = Runnable { stopRinging() }
-        handler.postDelayed(stopRunnable!!, AUTO_STOP_MS)
+        handler.postDelayed(stopRunnable!!, ringProfile.autoStopMs)
 
         return START_NOT_STICKY
     }
@@ -113,7 +118,6 @@ class AlarmService : Service() {
         private const val TAG = "TimerAlarmService"
         const val EXTRA_DURATION_MINUTES = "duration_minutes"
         const val ACTION_STOP = "net.kimptoc.timerwithauto.action.STOP_ALARM"
-        const val AUTO_STOP_MS = 2L * 60L * 1000L  // 2 minutes
         private const val STOP_REQ_CODE = 2001
     }
 }

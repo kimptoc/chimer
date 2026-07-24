@@ -8,8 +8,8 @@ import android.util.Log
 import net.kimptoc.timerwithauto.R
 
 interface AudioPlayer {
-    /** Starts looping the alarm sound. Safe to call again — re-starts cleanly. */
-    fun startLoop()
+    /** Starts looping the given raw sound resource. Safe to call again — re-starts cleanly. */
+    fun startLoop(soundRes: Int = R.raw.alarm)
     fun stop()
 }
 
@@ -17,10 +17,10 @@ class MediaPlayerAudioPlayer(private val context: Context) : AudioPlayer {
 
     private var player: MediaPlayer? = null
 
-    override fun startLoop() {
+    override fun startLoop(soundRes: Int) {
         stop()
         try {
-            val afd: AssetFileDescriptor = context.resources.openRawResourceFd(R.raw.alarm)
+            val afd: AssetFileDescriptor = context.resources.openRawResourceFd(soundRes)
                 ?: run {
                     Log.e(TAG, "alarm resource not found")
                     return
@@ -52,7 +52,7 @@ class MediaPlayerAudioPlayer(private val context: Context) : AudioPlayer {
             mp.prepare()
             mp.start()
             player = mp
-            Log.i(TAG, "startLoop: playing R.raw.alarm, isLooping=true, USAGE_ALARM")
+            Log.i(TAG, "startLoop: playing soundRes=$soundRes, isLooping=true, USAGE_ALARM")
         } catch (t: Throwable) {
             Log.e(TAG, "startLoop failed", t)
             try { player?.release() } catch (_: Throwable) {}
