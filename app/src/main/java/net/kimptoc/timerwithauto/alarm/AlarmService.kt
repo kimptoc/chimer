@@ -1,13 +1,13 @@
 package net.kimptoc.timerwithauto.alarm
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,13 +19,12 @@ import net.kimptoc.timerwithauto.TimerApp
 class AlarmService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val handler = Handler(Looper.getMainLooper())
-    private var stopRunnable: Runnable? = null
     private var isRinging = false
 
     private lateinit var audio: AudioPlayer
     private lateinit var vibrator: VibratorWrapper
     private lateinit var carConnectionChecker: CarConnectionChecker
+    private lateinit var alarmManager: AlarmManager
 
     override fun onCreate() {
         super.onCreate()
@@ -34,6 +33,7 @@ class AlarmService : Service() {
         audio = container.audioPlayer
         vibrator = container.vibratorWrapper
         carConnectionChecker = container.carConnectionChecker
+        alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
         Notifier.ensureChannel(this)
     }
 
@@ -48,12 +48,7 @@ class AlarmService : Service() {
         val durationMinutes = intent?.getIntExtra(EXTRA_DURATION_MINUTES, 0) ?: 0
         isRinging = true
 
-        val stopPi = PendingIntent.getService(
-            this,
-            STOP_REQ_CODE,
-            Intent(this, AlarmService::class.java).apply { action = ACTION_STOP },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val stopPi = buildStopPendingIntent()
         val notif = Notifier.buildRingingNotification(this, stopPi)
 
         try {
@@ -85,18 +80,34 @@ class AlarmService : Service() {
         try { audio.startLoop(ringProfile.soundRes) } catch (t: Throwable) { Log.e(TAG, "audio.startLoop failed", t) }
         try { vibrator.startLoop() } catch (t: Throwable) { Log.e(TAG, "vibrator.startLoop failed", t) }
 
-        stopRunnable = Runnable { stopRinging() }
-        handler.postDelayed(stopRunnable!!, ringProfile.autoStopMs)
+        scheduleAutoStop(stopPi, ringProfile.autoStopMs)
 
         return START_NOT_STICKY
+    }
+
+    private fun buildStopPendingIntent(): PendingIntent = PendingIntent.getService(
+        this,
+        STOP_REQ_CODE,
+        Intent(this, AlarmService::class.java).apply { action = ACTION_STOP },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun scheduleAutoStop(stopPi: PendingIntent, delayMs: Long) {
+        val triggerAtMs = SystemClock.elapsedRealtime() + delayMs
+        try {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAtMs, stopPi)
+        } catch (e: SecurityException) {
+            // USE_EXACT_ALARM is install-granted for alarm-category apps; if the OEM disables it,
+            // fall back to an inexact alarm. Better late than silent.
+            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAtMs, stopPi)
+        }
     }
 
     private fun stopRinging() {
         if (!isRinging) return
         Log.i(TAG, "stopRinging")
         isRinging = false
-        stopRunnable?.let { handler.removeCallbacks(it) }
-        stopRunnable = null
+        alarmManager.cancel(buildStopPendingIntent())
         audio.stop()
         vibrator.stop()
         scope.launch {
