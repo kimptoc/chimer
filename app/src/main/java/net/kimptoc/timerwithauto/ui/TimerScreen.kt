@@ -4,6 +4,8 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -147,8 +150,41 @@ private fun MinutesPicker(value: Int, onValueChange: (Int) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Button(onClick = { if (value > 1) onValueChange(value - 1) }) { Text("−") }
+        RepeatingStepButton(label = "−", onStep = { if (value > 1) onValueChange(value - 1) })
         Text("$value min", fontSize = 32.sp)
-        Button(onClick = { if (value < 180) onValueChange(value + 1) }) { Text("+") }
+        RepeatingStepButton(label = "+", onStep = { if (value < 180) onValueChange(value + 1) })
     }
+}
+
+/**
+ * A single tap steps once; holding repeats [onStep] with accelerating delay
+ * (see [RepeatAcceleration]) so dragging a duration far from its start doesn't
+ * require many individual taps.
+ */
+@Composable
+private fun RepeatingStepButton(label: String, onStep: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val currentOnStep by rememberUpdatedState(onStep)
+    var repeated by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isPressed) {
+        if (!isPressed) {
+            repeated = false
+            return@LaunchedEffect
+        }
+        delay(RepeatAcceleration.INITIAL_DELAY_MS)
+        var delayMs = RepeatAcceleration.INITIAL_DELAY_MS
+        while (isPressed) {
+            repeated = true
+            currentOnStep()
+            delayMs = RepeatAcceleration.nextDelayMs(delayMs)
+            delay(delayMs)
+        }
+    }
+
+    Button(
+        onClick = { if (!repeated) currentOnStep() },
+        interactionSource = interactionSource,
+    ) { Text(label) }
 }
