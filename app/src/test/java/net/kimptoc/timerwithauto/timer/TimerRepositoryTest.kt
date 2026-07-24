@@ -20,6 +20,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -58,7 +59,7 @@ class TimerRepositoryTest {
 
     @Test fun `startTimer schedules and transitions to Running`() = runTest(UnconfinedTestDispatcher()) {
         val repo = newRepo()
-        repo.state.test {
+        repo.state.test(timeout = TURBINE_TIMEOUT) {
             assertEquals(TimerState.Idle, awaitItem())
             repo.startTimer(durationMinutes = 10)
             val running = awaitItem() as TimerState.Running
@@ -72,7 +73,7 @@ class TimerRepositoryTest {
 
     @Test fun `startTimer updates recents MRU`() = runTest(UnconfinedTestDispatcher()) {
         val repo = newRepo()
-        repo.recents.test {
+        repo.recents.test(timeout = TURBINE_TIMEOUT) {
             assertEquals(listOf(5, 12, 60), awaitItem())
             repo.startTimer(7)
             assertEquals(listOf(7, 5, 12, 60), awaitItem())
@@ -135,5 +136,11 @@ class TimerRepositoryTest {
     private class FakeClock(initial: Long) : Clock {
         var nowMs = initial
         override fun nowEpochMs(): Long = nowMs
+    }
+
+    companion object {
+        // DataStore's writes go through its own IO dispatcher, not the test scheduler; a loaded
+        // CI runner can occasionally take longer than Turbine's 3s default to emit.
+        private val TURBINE_TIMEOUT = 10.seconds
     }
 }
