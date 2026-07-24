@@ -169,10 +169,11 @@ private fun RepeatingStepButton(label: String, onStep: () -> Unit) {
     var repeated by remember { mutableStateOf(false) }
 
     LaunchedEffect(isPressed) {
-        if (!isPressed) {
-            repeated = false
-            return@LaunchedEffect
-        }
+        if (!isPressed) return@LaunchedEffect
+        // Reset at the start of a new press (not the end of the previous one) so this
+        // write is always causally ordered before that press's own eventual onClick,
+        // regardless of how Compose schedules the release-interaction vs. onClick coroutines.
+        repeated = false
         delay(RepeatAcceleration.INITIAL_DELAY_MS)
         var delayMs = RepeatAcceleration.INITIAL_DELAY_MS
         while (isPressed) {
