@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - `minSdk = 29`, `compileSdk = 36`, `targetSdk = 36` (from `app/build.gradle.kts`) — do not change these.
-- `androidx.core:core-ktx` must be bumped from `1.13.1` to `1.19.0` (promoted-ongoing APIs need core `1.17.0-alpha01`+).
+- `androidx.core:core-ktx` must be bumped from `1.13.1` to `1.18.0` (promoted-ongoing APIs need core `1.17.0-alpha01`+).
 - Manifest must declare `android.permission.POST_PROMOTED_NOTIFICATIONS`.
 - The promoted branch must gate on both `Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA` **and** `NotificationManager.canPostPromotedNotifications()` — never one without the other.
 - The existing `MediaStyle`/`TimerMediaSession` code path must not change behavior for devices where the promoted branch doesn't apply.
@@ -22,7 +22,7 @@ Reference spec: `docs/superpowers/specs/2026-07-31-status-bar-live-update-chip-d
 
 ---
 
-### Task 1: Bump `androidx.core:core-ktx` to 1.19.0
+### Task 1: Bump `androidx.core:core-ktx` to 1.18.0
 
 **Files:**
 - Modify: `gradle/libs.versions.toml:6`
@@ -36,7 +36,7 @@ This is a version-floor bump landed in isolation, per the spec, so any breakage 
 
 In `gradle/libs.versions.toml`, change line 6:
 ```toml
-coreKtx = "1.19.0"
+coreKtx = "1.18.0"
 ```
 
 - [ ] **Step 2: Sync and build**
@@ -53,7 +53,7 @@ Expected: All existing tests pass (`RingProfileTest`, `RecentDurationsTest`, `Ti
 
 ```bash
 git add gradle/libs.versions.toml
-git commit -m "build: bump androidx.core to 1.19.0 for Live Update notification support"
+git commit -m "build: bump androidx.core to 1.18.0 for Live Update notification support"
 ```
 
 ---
@@ -186,7 +186,7 @@ Add this function directly after `buildRunningNotification` (after the `private 
 - [ ] **Step 5: Build**
 
 Run: `./gradlew assembleDebug`
-Expected: BUILD SUCCESSFUL. If `setRequestPromotedOngoing` or `setChronometerCountDown` are unresolved, re-check Task 1 landed correctly (`./gradlew :app:dependencies | grep core-ktx` should show `1.19.0`).
+Expected: BUILD SUCCESSFUL. If `setRequestPromotedOngoing` or `setChronometerCountDown` are unresolved, re-check Task 1 landed correctly (`./gradlew :app:dependencies | grep core-ktx` should show `1.18.0`).
 
 - [ ] **Step 6: Commit**
 
@@ -371,7 +371,7 @@ gh pr create --title "Show time left as a status-bar Live Update chip (issue #19
 ## Summary
 - Issue #19 was titled "show time left in top left home screen widget," but after discussion it turned out to describe Android's status-bar "Live Update" chip (the pill that appears top-left near the clock for ongoing activities on Android 16+), not a launcher home-screen widget or the existing Samsung Now Bar pill.
 - Adds a second, styleless promoted-ongoing notification path (`Notifier.buildRunningPromotedNotification`) used only when `Notifier.canPromote(context)` is true (API 36+ and the OS grants promotion). The existing `MediaStyle`/`TimerMediaSession` Now Bar path is unchanged for all other devices (notably One UI 7 / Android 15, which predates this API).
-- Bumped `androidx.core:core-ktx` to `1.19.0` for the new `NotificationCompat` APIs, and added the `POST_PROMOTED_NOTIFICATIONS` manifest permission.
+- Bumped `androidx.core:core-ktx` to `1.18.0` for the new `NotificationCompat` APIs, and added the `POST_PROMOTED_NOTIFICATIONS` manifest permission.
 
 See `docs/superpowers/specs/2026-07-31-status-bar-live-update-chip-design.md` for the full design and the reasoning behind the runtime branch.
 

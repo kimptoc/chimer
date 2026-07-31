@@ -113,8 +113,8 @@ may render icon-only or static text instead. This must be checked on-device
 
 ## 4. Supporting changes
 
-1. Bump `androidx.core:core-ktx` from `1.13.1` to `1.19.0` in `gradle/libs.versions.toml`
-   — the promoted-ongoing APIs need core `1.17.0-alpha01`+; `1.19.0` is current stable.
+1. Bump `androidx.core:core-ktx` from `1.13.1` to `1.18.0` in `gradle/libs.versions.toml`
+   — the promoted-ongoing APIs need core `1.17.0-alpha01`+; `1.18.0` is current stable.
    Land this as its own commit, build and run the existing unit test suite before
    writing any feature code — it's a six-minor-version jump and could interact with
    `androidx.media` (`MediaStyle`) or AGP/Kotlin version floors; isolate that failure
