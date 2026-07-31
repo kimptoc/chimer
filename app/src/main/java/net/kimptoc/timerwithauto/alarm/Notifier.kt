@@ -50,11 +50,8 @@ object Notifier {
         }
 
         if (nm.getNotificationChannel(CHANNEL_RUNNING) == null) {
-            // LOW so it doesn't make sound on every state update. On Android 16+
-            // devices, the status-bar "Live Update" chip is instead rendered via the
-            // promoted-ongoing notification built by buildRunningPromotedNotification;
-            // the MediaSession is only relevant to the MediaStyle fallback path, where
-            // it is what triggers the system to render the Now Bar / status-bar pill.
+            // LOW so it doesn't make sound on every state update. See canPromote()
+            // for which of the Live Update chip / MediaSession Now Bar pill applies.
             val channel = NotificationChannel(
                 CHANNEL_RUNNING,
                 context.getString(R.string.notif_channel_running),
