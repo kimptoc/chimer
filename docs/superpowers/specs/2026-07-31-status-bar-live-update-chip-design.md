@@ -1,7 +1,7 @@
 # Status-bar "Live Update" chip for running timer (issue #19) — Design Spec
 
 Date: 2026-07-31
-Status: Approved (pending user re-review of written spec)
+Status: Implemented and verified on-device (One UI 8.5 / Android 16)
 Issue: https://github.com/kimptoc/chimer/issues/19
 
 ## 1. Summary
@@ -95,21 +95,26 @@ notification whose internal construction differs by capability. Cancellation
 deactivating the media session covers both branches (the media session is simply
 unused/inactive on the promoted branch).
 
-**Open verification risk:** every piece of ground truth found for this spec
-(Google's `platform-samples` `live-updates` sample) pairs `setWhen` /
-`setUsesChronometer` / `setChronometerCountDown` with a `ProgressStyle` notification,
-not a styleless one. "Standard style is promotable" does not necessarily mean the
-status-bar *chip* renders a ticking chronometer for a styleless notification — it
-may render icon-only or static text instead. This must be checked on-device
-(the user's One UI 8.5 / Android 16 phone) before this is considered done:
-1. Log `notification.hasPromotableCharacteristics()` and
-   `notificationManager.canPostPromotedNotifications()` to confirm the notification
-   qualifies.
-2. Visually confirm the chip shows a live-ticking countdown, not a static value or
-   icon-only chip.
-3. If it does not tick: switch `postPromoted` to `NotificationCompat.ProgressStyle`
-   (mirroring the sample) and re-verify. This would supersede the "no `ProgressStyle`"
-   non-goal below — note that in the PR if it happens.
+**Verification result:** verified on a Samsung Galaxy S25 Ultra, One UI 8.5,
+Android 16 (API 36).
+- `dumpsys notification` confirmed the running notification (`NOTIF_ID_RUNNING`,
+  channel `timer_running`) carries `flags=...|PROMOTED_ONGOING` when posted via
+  `buildRunningPromotedNotification` — the styleless notification (no `ProgressStyle`)
+  was accepted for promotion.
+- The notification shade's "Live notifications" section showed the chip's chronometer
+  text ticking live (e.g. "03:49", counting down), confirming a styleless notification
+  does render the ticking countdown text — the `ProgressStyle` fallback described in
+  the original open-question was not needed.
+- The Cancel action was confirmed to correctly clear the notification (verified via
+  `logcat`'s `onNotificationRemoved` event and `dumpsys` showing it moved out of the
+  active notification list) on the promoted-ongoing path.
+- Additionally, the pre-existing MediaStyle/Now Bar fallback path (taken when
+  `canPromote()` is false) was independently re-verified on the same physical device
+  after the `androidx.core` version bump (by temporarily forcing `canPromote()` to
+  return `false`, confirming the Now Bar pill still renders correctly with the
+  progress bar and title/text, and that Cancel correctly clears it too) — closing the
+  risk the design doc originally flagged in §4 about the core-ktx bump interacting
+  with `androidx.media`/MediaStyle.
 
 ## 4. Supporting changes
 
@@ -126,9 +131,9 @@ may render icon-only or static text instead. This must be checked on-device
 
 ## 5. Non-goals
 
-- No `ProgressStyle` progress bar / segments / points, *unless* the on-device
-  verification in §3 shows a styleless notification doesn't render a ticking chip —
-  see the fallback there.
+- No `ProgressStyle` progress bar / segments / points — on-device verification in §3
+  confirmed a styleless notification renders a ticking chip, so the `ProgressStyle`
+  fallback was not needed.
 - No change to the ringing-alarm notification (`buildRingingNotification`).
 - No change to Android Auto (`TimerCarScreen`) — unaffected by this feature.
 - No unit tests added — posting real Android notifications isn't unit-testable without

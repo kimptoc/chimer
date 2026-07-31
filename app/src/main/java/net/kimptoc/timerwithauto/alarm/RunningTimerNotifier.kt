@@ -17,11 +17,20 @@ import net.kimptoc.timerwithauto.timer.TimerState
 
 /**
  * Observes [TimerRepository.state] and posts / cancels the running-timer
- * notification accordingly. Uses a MediaSession-backed MediaStyle
- * notification so the system surfaces it in Samsung's Now Bar pill and
- * the lockscreen / status-bar media chip.
+ * notification accordingly. Chooses between two mechanisms at runtime based on
+ * device capability ([Notifier.canPromote]):
  *
- * Running  -> activate session with PlaybackState PLAYING, post media-style notification
+ * - On Android 16+ devices where the OS grants promotion, posts a single styleless
+ *   promoted-ongoing notification ([Notifier.buildRunningPromotedNotification]) whose
+ *   chronometer the system ticks itself for the status-bar "Live Update" chip — no
+ *   periodic re-post needed.
+ * - Otherwise, falls back to the existing MediaSession-backed MediaStyle notification
+ *   so the system surfaces it in Samsung's Now Bar pill and the lockscreen /
+ *   status-bar media chip, with a periodic refresh loop to keep the pill alive.
+ *
+ * Running  -> if promotable, post the promoted-ongoing notification once; otherwise
+ *             activate the media session with PlaybackState PLAYING and post the
+ *             media-style notification on a periodic refresh loop
  * Idle     -> deactivate session, cancel notification
  * Ringing  -> deactivate session, cancel notification (AlarmService's ringing notification takes over)
  */
