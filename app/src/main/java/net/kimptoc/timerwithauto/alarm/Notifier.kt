@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.support.v4.media.session.MediaSessionCompat
 import androidx.car.app.notification.CarNotificationManager
 import androidx.core.app.NotificationChannelCompat
@@ -66,20 +67,19 @@ object Notifier {
         }
     }
 
+    fun canPromote(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return false
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        return nm.canPostPromotedNotifications()
+    }
+
     fun buildRunningNotification(
         context: Context,
         durationMinutes: Int,
         sessionToken: MediaSessionCompat.Token,
         cancelIntent: PendingIntent,
     ): Notification {
-        val contentIntent = PendingIntent.getActivity(
-            context,
-            REQ_RUNNING_CONTENT,
-            Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val contentIntent = runningContentIntent(context)
 
         val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
             .setMediaSession(sessionToken)
@@ -104,7 +104,44 @@ object Notifier {
             .build()
     }
 
+    private fun runningContentIntent(context: Context): PendingIntent = PendingIntent.getActivity(
+        context,
+        REQ_RUNNING_CONTENT,
+        Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
     private const val REQ_RUNNING_CONTENT = 3001
+
+    fun buildRunningPromotedNotification(
+        context: Context,
+        durationMinutes: Int,
+        deadlineEpochMs: Long,
+        cancelIntent: PendingIntent,
+    ): Notification {
+        return NotificationCompat.Builder(context, CHANNEL_RUNNING)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(context.getString(R.string.notif_running_title))
+            .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(runningContentIntent(context))
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                context.getString(R.string.notif_action_cancel),
+                cancelIntent,
+            )
+            .setRequestPromotedOngoing(true)
+            .setWhen(deadlineEpochMs)
+            .setUsesChronometer(true)
+            .setChronometerCountDown(true)
+            .build()
+    }
 
     fun buildRingingNotification(context: Context, stopIntent: PendingIntent): Notification {
         return NotificationCompat.Builder(context, CHANNEL_RINGING)
