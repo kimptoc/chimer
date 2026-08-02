@@ -17,11 +17,12 @@ import net.kimptoc.timerwithauto.timer.TimerState
 
 /**
  * Observes [TimerRepository.state] and posts / cancels the running-timer
- * notification accordingly. Uses a MediaSession-backed MediaStyle
- * notification so the system surfaces it in Samsung's Now Bar pill and
- * the lockscreen / status-bar media chip.
+ * notification accordingly. Branches on [Notifier.canPromote] — see the design spec
+ * (docs/superpowers/specs/2026-07-31-status-bar-live-update-chip-design.md) for why.
  *
- * Running  -> activate session with PlaybackState PLAYING, post media-style notification
+ * Running  -> if promotable, post the promoted-ongoing notification once; otherwise
+ *             activate the media session with PlaybackState PLAYING and post the
+ *             media-style notification on a periodic refresh loop
  * Idle     -> deactivate session, cancel notification
  * Ringing  -> deactivate session, cancel notification (AlarmService's ringing notification takes over)
  */
@@ -40,13 +41,19 @@ class RunningTimerNotifier(
             repository.state.collectLatest { state ->
                 when (state) {
                     is TimerState.Running -> coroutineScope {
-                        // One UI's Now Bar pill drops the entry once the MediaSession's
-                        // interpolated position passes duration, and some launchers GC the
-                        // ongoing notification if it isn't re-posted. Refresh both
-                        // periodically to keep the pills alive for the full countdown.
-                        while (isActive) {
-                            post(state)
-                            delay(REFRESH_INTERVAL_MS)
+                        if (Notifier.canPromote(context)) {
+                            // Android 16+ Live Update chip: the system ticks the
+                            // chronometer itself, so one post is enough.
+                            postPromoted(state)
+                        } else {
+                            // One UI's Now Bar pill drops the entry once the MediaSession's
+                            // interpolated position passes duration, and some launchers GC the
+                            // ongoing notification if it isn't re-posted. Refresh
+                            // periodically to keep the pill alive for the full countdown.
+                            while (isActive) {
+                                postMediaStyle(state)
+                                delay(REFRESH_INTERVAL_MS)
+                            }
                         }
                     }
                     is TimerState.Idle, is TimerState.Ringing -> cancel()
@@ -55,7 +62,7 @@ class RunningTimerNotifier(
         }
     }
 
-    private fun post(state: TimerState.Running) {
+    private fun postMediaStyle(state: TimerState.Running) {
         if (!nm.areNotificationsEnabled()) return
         val totalMs = state.durationMinutes * 60_000L
         val elapsedMs = (clock.nowEpochMs() - (state.deadlineEpochMs - totalMs))
@@ -65,19 +72,36 @@ class RunningTimerNotifier(
             elapsedMs = elapsedMs,
             title = context.getString(R.string.notif_running_title),
         )
-        val cancelPi = PendingIntent.getBroadcast(
-            context,
-            REQ_CANCEL,
-            Intent(context, CancelTimerReceiver::class.java).apply {
-                action = CancelTimerReceiver.ACTION
-            },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val cancelPi = cancelPendingIntent()
         val notif = Notifier.buildRunningNotification(
             context = context,
             durationMinutes = state.durationMinutes,
             sessionToken = mediaSession.sessionToken,
             cancelIntent = cancelPi,
+        )
+        try {
+            nm.notify(Notifier.NOTIF_ID_RUNNING, notif)
+        } catch (_: SecurityException) {
+            // POST_NOTIFICATIONS denied — accept silently.
+        }
+    }
+
+    private fun cancelPendingIntent(): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        REQ_CANCEL,
+        Intent(context, CancelTimerReceiver::class.java).apply {
+            action = CancelTimerReceiver.ACTION
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private fun postPromoted(state: TimerState.Running) {
+        if (!nm.areNotificationsEnabled()) return
+        val notif = Notifier.buildRunningPromotedNotification(
+            context = context,
+            durationMinutes = state.durationMinutes,
+            deadlineEpochMs = state.deadlineEpochMs,
+            cancelIntent = cancelPendingIntent(),
         )
         try {
             nm.notify(Notifier.NOTIF_ID_RUNNING, notif)
