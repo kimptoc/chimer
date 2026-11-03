@@ -22,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,12 +38,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import net.kimptoc.timerwithauto.timer.PinnedDurations
 import net.kimptoc.timerwithauto.timer.TimerState
 
 @Composable
 fun TimerScreen(viewModel: TimerViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recents by viewModel.recents.collectAsStateWithLifecycle()
+    val pinned by viewModel.pinned.collectAsStateWithLifecycle()
 
     // POST_NOTIFICATIONS runtime permission on Android 13+
     val notifPermissionLauncher = rememberLauncherForActivityResult(
@@ -60,7 +63,14 @@ fun TimerScreen(viewModel: TimerViewModel) {
         contentAlignment = Alignment.Center,
     ) {
         when (val s = state) {
-            is TimerState.Idle -> IdleView(recents = recents, onStart = viewModel::start)
+            is TimerState.Idle -> IdleView(
+                lastUsedMinutes = viewModel.lastUsedMinutes,
+                recents = recents,
+                pinned = pinned,
+                onStart = viewModel::start,
+                onPin = viewModel::pin,
+                onUnpin = viewModel::unpin,
+            )
             is TimerState.Running -> RunningView(state = s, onCancel = viewModel::cancel)
             is TimerState.Ringing -> RingingView(onStop = viewModel::stopAlarm)
         }
@@ -68,8 +78,16 @@ fun TimerScreen(viewModel: TimerViewModel) {
 }
 
 @Composable
-private fun IdleView(recents: List<Int>, onStart: (Int) -> Unit) {
-    var minutes by remember { mutableStateOf(recents.firstOrNull() ?: 10) }
+private fun IdleView(
+    lastUsedMinutes: Int?,
+    recents: List<Int>,
+    pinned: List<Int>,
+    onStart: (Int) -> Unit,
+    onPin: (Int) -> Unit,
+    onUnpin: (Int) -> Unit,
+) {
+    var minutes by remember { mutableStateOf(lastUsedMinutes ?: pinned.firstOrNull() ?: 10) }
+    val isPinned = minutes in pinned
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -80,14 +98,18 @@ private fun IdleView(recents: List<Int>, onStart: (Int) -> Unit) {
 
         MinutesPicker(value = minutes, onValueChange = { minutes = it })
 
-        Text("Recent:", style = MaterialTheme.typography.labelLarge)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(recents) { mins ->
-                AssistChip(
-                    onClick = { minutes = mins },
-                    label = { Text("$mins") },
-                )
-            }
+        TextButton(
+            onClick = { if (isPinned) onUnpin(minutes) else onPin(minutes) },
+            enabled = isPinned || pinned.size < PinnedDurations.MAX_SIZE,
+        ) {
+            Text(if (isPinned) "Unpin $minutes min" else "Pin $minutes min")
+        }
+
+        if (pinned.isNotEmpty()) {
+            DurationChips(title = "Pinned:", durations = pinned, onSelect = { minutes = it })
+        }
+        if (recents.isNotEmpty()) {
+            DurationChips(title = "Recent:", durations = recents, onSelect = { minutes = it })
         }
 
         Spacer(Modifier.height(8.dp))
@@ -97,6 +119,19 @@ private fun IdleView(recents: List<Int>, onStart: (Int) -> Unit) {
             modifier = Modifier.fillMaxWidth().height(56.dp),
         ) {
             Text("START", fontSize = 18.sp)
+        }
+    }
+}
+
+@Composable
+private fun DurationChips(title: String, durations: List<Int>, onSelect: (Int) -> Unit) {
+    Text(title, style = MaterialTheme.typography.labelLarge)
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(durations) { mins ->
+            AssistChip(
+                onClick = { onSelect(mins) },
+                label = { Text("$mins") },
+            )
         }
     }
 }

@@ -24,6 +24,13 @@ interface TimerRepository {
 
     val recents: StateFlow<List<Int>>
 
+    /** User-pinned durations (minutes), sorted ascending. Empty by default. */
+    val pinned: StateFlow<List<Int>>
+
+    suspend fun pin(durationMinutes: Int)
+
+    suspend fun unpin(durationMinutes: Int)
+
     suspend fun startTimer(durationMinutes: Int)
 
     suspend fun cancelTimer()
@@ -80,6 +87,21 @@ class TimerRepositoryImpl(
         }
         .stateIn(scope, SharingStarted.Eagerly, RecentDurations.SEED)
 
+    override val pinned: StateFlow<List<Int>> = dataStore.data
+        .map { prefs -> prefs[KEY_PINNED]?.let { PinnedDurations.parse(it) } ?: emptyList() }
+        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    override suspend fun pin(durationMinutes: Int) = editPinned { PinnedDurations.add(it, durationMinutes) }
+
+    override suspend fun unpin(durationMinutes: Int) = editPinned { PinnedDurations.remove(it, durationMinutes) }
+
+    private suspend fun editPinned(transform: (List<Int>) -> List<Int>) {
+        dataStore.edit { prefs ->
+            val current = prefs[KEY_PINNED]?.let { PinnedDurations.parse(it) } ?: emptyList()
+            prefs[KEY_PINNED] = PinnedDurations.format(transform(current))
+        }
+    }
+
     override suspend fun startTimer(durationMinutes: Int) {
         if (isRingingFlow.value) return
         val deadline = clock.nowEpochMs() + durationMinutes * 60_000L
@@ -120,5 +142,6 @@ class TimerRepositoryImpl(
         private val KEY_DEADLINE = longPreferencesKey("timer_deadline_epoch_ms")
         private val KEY_DURATION = intPreferencesKey("timer_duration_minutes")
         private val KEY_RECENTS = stringPreferencesKey("recent_durations_minutes")
+        private val KEY_PINNED = stringPreferencesKey("pinned_durations_minutes")
     }
 }
