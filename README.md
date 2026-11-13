@@ -6,6 +6,7 @@ A simple Android countdown-timer app — chimes when time's up, and adapts the c
 
 - Set a timer from the phone (minutes; defaults to your most-recent duration, plus a list of the last five used)
 - A four-note chime + vibration loops on expiry, auto-stopping after 2 minutes if you don't cancel
+- While a timer runs, the time left counts down in a status-bar Live Update chip on Android 16+ (when the system allows promoted notifications); older devices get a regular ongoing notification with a Cancel action
 - Survives the app being killed and the device being rebooted
 - **When Android Auto is connected**, the timer switches to a shorter, distinct chime and auto-stops after 15 seconds instead of 2 minutes — this is the one Android Auto behaviour that actually works today (see "Android Auto" below)
 
