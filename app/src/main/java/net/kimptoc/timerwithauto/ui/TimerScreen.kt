@@ -46,6 +46,7 @@ fun TimerScreen(viewModel: TimerViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recents by viewModel.recents.collectAsStateWithLifecycle()
     val pinned by viewModel.pinned.collectAsStateWithLifecycle()
+    val defaultMinutes by viewModel.defaultMinutes.collectAsStateWithLifecycle()
 
     // POST_NOTIFICATIONS runtime permission on Android 13+
     val notifPermissionLauncher = rememberLauncherForActivityResult(
@@ -64,7 +65,7 @@ fun TimerScreen(viewModel: TimerViewModel) {
     ) {
         when (val s = state) {
             is TimerState.Idle -> IdleView(
-                lastUsedMinutes = viewModel.lastUsedMinutes,
+                defaultMinutes = defaultMinutes,
                 recents = recents,
                 pinned = pinned,
                 onStart = viewModel::start,
@@ -79,14 +80,20 @@ fun TimerScreen(viewModel: TimerViewModel) {
 
 @Composable
 private fun IdleView(
-    lastUsedMinutes: Int?,
+    defaultMinutes: Int,
     recents: List<Int>,
     pinned: List<Int>,
     onStart: (Int) -> Unit,
     onPin: (Int) -> Unit,
     onUnpin: (Int) -> Unit,
 ) {
-    var minutes by remember { mutableStateOf(lastUsedMinutes ?: pinned.firstOrNull() ?: 10) }
+    var minutes by remember { mutableStateOf(defaultMinutes) }
+    // Follow the default (it changes when DataStore loads) until the user picks something.
+    var userPicked by remember { mutableStateOf(false) }
+    LaunchedEffect(defaultMinutes) {
+        if (!userPicked) minutes = defaultMinutes
+    }
+    val pick: (Int) -> Unit = { userPicked = true; minutes = it }
     val isPinned = minutes in pinned
 
     Column(
@@ -96,20 +103,23 @@ private fun IdleView(
     ) {
         Text("Chimer", style = MaterialTheme.typography.headlineSmall)
 
-        MinutesPicker(value = minutes, onValueChange = { minutes = it })
+        MinutesPicker(value = minutes, onValueChange = pick)
 
         TextButton(
-            onClick = { if (isPinned) onUnpin(minutes) else onPin(minutes) },
+            onClick = {
+                userPicked = true
+                if (isPinned) onUnpin(minutes) else onPin(minutes)
+            },
             enabled = isPinned || pinned.size < PinnedDurations.MAX_SIZE,
         ) {
             Text(if (isPinned) "Unpin $minutes min" else "Pin $minutes min")
         }
 
         if (pinned.isNotEmpty()) {
-            DurationChips(title = "Pinned:", durations = pinned, onSelect = { minutes = it })
+            DurationChips(title = "Pinned:", durations = pinned, onSelect = pick)
         }
         if (recents.isNotEmpty()) {
-            DurationChips(title = "Recent:", durations = recents, onSelect = { minutes = it })
+            DurationChips(title = "Recent:", durations = recents, onSelect = pick)
         }
 
         Spacer(Modifier.height(8.dp))

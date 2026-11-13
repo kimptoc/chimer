@@ -43,4 +43,16 @@ class PinnedDurationsTest {
     @Test fun `format round-trips through parse`() {
         assertEquals(listOf(3, 15, 45), PinnedDurations.parse(PinnedDurations.format(listOf(3, 15, 45))))
     }
+
+    @Test fun `defaultSelection prefers most recently used`() {
+        assertEquals(25, PinnedDurations.defaultSelection(recents = listOf(25, 5), pinned = listOf(3)))
+    }
+
+    @Test fun `defaultSelection falls back to first pinned`() {
+        assertEquals(3, PinnedDurations.defaultSelection(recents = emptyList(), pinned = listOf(3, 40)))
+    }
+
+    @Test fun `defaultSelection falls back to ten minutes`() {
+        assertEquals(10, PinnedDurations.defaultSelection(recents = emptyList(), pinned = emptyList()))
+    }
 }

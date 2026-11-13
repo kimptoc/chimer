@@ -33,8 +33,16 @@ class TimerViewModel(
             PinnedDurations.excludeFrom(repo.recents.value, repo.pinned.value),
         )
 
-    /** Most recently used duration, even if it's pinned (and so hidden from [recents]). */
-    val lastUsedMinutes: Int? get() = repo.recents.value.firstOrNull()
+    /**
+     * Picker's starting value. A flow (not a one-off read) so the screen picks up the
+     * persisted values once DataStore finishes loading after a cold start.
+     */
+    val defaultMinutes: StateFlow<Int> = combine(repo.recents, repo.pinned, PinnedDurations::defaultSelection)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            PinnedDurations.defaultSelection(repo.recents.value, repo.pinned.value),
+        )
 
     fun pin(durationMinutes: Int) {
         viewModelScope.launch { repo.pin(durationMinutes) }

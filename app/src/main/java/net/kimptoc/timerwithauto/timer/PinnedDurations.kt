@@ -24,6 +24,10 @@ object PinnedDurations {
     fun excludeFrom(recents: List<Int>, pinned: List<Int>): List<Int> =
         recents.filter { it !in pinned }
 
+    /** Initial picker value: last used, else first pinned, else 10 minutes. */
+    fun defaultSelection(recents: List<Int>, pinned: List<Int>): Int =
+        recents.firstOrNull() ?: pinned.firstOrNull() ?: 10
+
     /** Parses the persisted comma-joined form, normalising to sorted, distinct, capped. */
     fun parse(text: String): List<Int> =
         RecentDurations.parse(text).distinct().sorted().take(MAX_SIZE)
