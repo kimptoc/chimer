@@ -6,10 +6,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.kimptoc.timerwithauto.TimerApp
 import net.kimptoc.timerwithauto.alarm.AlarmService
+import net.kimptoc.timerwithauto.timer.PinnedDurations
 import net.kimptoc.timerwithauto.timer.TimerRepository
 import net.kimptoc.timerwithauto.timer.TimerState
 
@@ -19,7 +23,34 @@ class TimerViewModel(
 ) : AndroidViewModel(application) {
 
     val state: StateFlow<TimerState> = repo.state
-    val recents: StateFlow<List<Int>> = repo.recents
+    val pinned: StateFlow<List<Int>> = repo.pinned
+
+    /** Recents minus anything pinned, so the pinned row and recents row don't repeat. */
+    val recents: StateFlow<List<Int>> = combine(repo.recents, repo.pinned, PinnedDurations::excludeFrom)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            PinnedDurations.excludeFrom(repo.recents.value, repo.pinned.value),
+        )
+
+    /**
+     * Picker's starting value. A flow (not a one-off read) so the screen picks up the
+     * persisted values once DataStore finishes loading after a cold start.
+     */
+    val defaultMinutes: StateFlow<Int> = combine(repo.recents, repo.pinned, PinnedDurations::defaultSelection)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            PinnedDurations.defaultSelection(repo.recents.value, repo.pinned.value),
+        )
+
+    fun pin(durationMinutes: Int) {
+        viewModelScope.launch { repo.pin(durationMinutes) }
+    }
+
+    fun unpin(durationMinutes: Int) {
+        viewModelScope.launch { repo.unpin(durationMinutes) }
+    }
 
     fun start(durationMinutes: Int) {
         viewModelScope.launch { repo.startTimer(durationMinutes) }

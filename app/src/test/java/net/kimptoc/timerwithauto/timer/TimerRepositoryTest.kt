@@ -83,6 +83,30 @@ class TimerRepositoryTest {
         }
     }
 
+    @Test fun `pinned starts empty and pin and unpin update it`() = runTest(UnconfinedTestDispatcher()) {
+        val repo = newRepo()
+        repo.pinned.test(timeout = TURBINE_TIMEOUT) {
+            assertEquals(emptyList<Int>(), awaitItem())
+            repo.pin(25)
+            assertEquals(listOf(25), awaitItem())
+            repo.pin(10)
+            assertEquals(listOf(10, 25), awaitItem())
+            repo.unpin(25)
+            assertEquals(listOf(10), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test fun `pinning and starting timers keep pinned and recents independent`() = runTest(UnconfinedTestDispatcher()) {
+        val repo = newRepo()
+        repo.pin(10)
+        repo.pin(10) // duplicate ignored
+        repo.startTimer(7)
+        advanceUntilIdle()
+        assertEquals(listOf(10), repo.pinned.first { it.isNotEmpty() })
+        assertEquals(listOf(7, 5, 12, 60), repo.recents.first { it.first() == 7 })
+    }
+
     @Test fun `cancelTimer clears deadline and calls scheduler`() = runTest(UnconfinedTestDispatcher()) {
         val repo = newRepo()
         repo.startTimer(5)

@@ -5,6 +5,7 @@
 A simple Android countdown-timer app — chimes when time's up, and adapts the chime when your phone is connected to Android Auto.
 
 - Set a timer from the phone (minutes; defaults to your most-recent duration, plus a list of the last five used)
+- Pin favourite durations so they always show above the recents; select one and tap "Unpin" to remove it
 - A four-note chime + vibration loops on expiry, auto-stopping after 2 minutes if you don't cancel
 - While a timer runs, the time left counts down in a status-bar Live Update chip on Android 16+ (when the system allows promoted notifications); older devices get a regular ongoing notification with a Cancel action
 - Survives the app being killed and the device being rebooted
@@ -21,7 +22,7 @@ A simple Android countdown-timer app — chimes when time's up, and adapts the c
 - AlarmManager (`USE_EXACT_ALARM`) for scheduling, foreground service (`specialUse`) for the ringing playback
 - DataStore Preferences for persistence
 - No DI framework — single `AppContainer` for wiring
-- 25 JVM unit tests covering the recents helper, time formatting, the repository (DataStore via Robolectric), and the ring-profile / hold-to-repeat logic
+- 36 JVM unit tests covering the recents and pinned helpers, time formatting, the repository (DataStore via Robolectric), and the ring-profile / hold-to-repeat logic
 
 ## Build
 
@@ -32,7 +33,7 @@ JAVA_HOME=/Applications/Android\ Studio.app/Contents/jbr/Contents/Home \
   ./gradlew :app:assembleDebug
 
 JAVA_HOME=/Applications/Android\ Studio.app/Contents/jbr/Contents/Home \
-  ./gradlew :app:testDebugUnitTest    # 25 unit tests
+  ./gradlew :app:testDebugUnitTest    # 36 unit tests
 
 JAVA_HOME=/Applications/Android\ Studio.app/Contents/jbr/Contents/Home \
   ./gradlew :app:installDebug
