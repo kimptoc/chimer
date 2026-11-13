@@ -2,13 +2,16 @@
 
 [![CI](https://github.com/kimptoc/chimer/actions/workflows/ci.yml/badge.svg)](https://github.com/kimptoc/chimer/actions/workflows/ci.yml)
 
-A simple Android countdown-timer app — chimes when time's up, with an Android Auto cancel surface.
+A simple Android countdown-timer app — chimes when time's up, and adapts the chime when your phone is connected to Android Auto.
 
 - Set a timer from the phone (minutes; defaults to your most-recent duration, plus a list of the last five used)
-- A four-note chime + vibration loops on expiry, auto-stopping after 2 minutes if you don't cancel (15 seconds with a shorter, distinct chime when connected to Android Auto)
+- A four-note chime + vibration loops on expiry, auto-stopping after 2 minutes if you don't cancel
 - Survives the app being killed and the device being rebooted
-- When connected to Android Auto, the running countdown and a big STOP button show on the head unit
-- When the timer expires, the car screen shows a prominent red STOP button (no more "unlock screen" UI)
+- **When Android Auto is connected**, the timer switches to a shorter, distinct chime and auto-stops after 15 seconds instead of 2 minutes — this is the one Android Auto behaviour that actually works today (see "Android Auto" below)
+
+### What doesn't work yet
+
+- The app **does not show up in the Android Auto launcher** — there's no in-car screen, countdown, or STOP button on the head unit, despite code for one existing in the repo. See "Android Auto: known limitations" below.
 
 ## Tech stack
 
@@ -38,12 +41,9 @@ Open in Android Studio normally; everything is Gradle Kotlin DSL.
 
 ## Android Auto: known limitations
 
-This app is **not Play-ready** out of the box:
+**The app does not appear in the Android Auto launcher**, even sideloaded with developer mode enabled ([#7](https://github.com/kimptoc/chimer/issues/7)) — confirmed both by an external user and by the maintainer's own car. The `CarAppService` declares `androidx.car.app.category.POI`, which is the least-wrong of the categories Android Auto allows in its launcher, but a timer utility isn't really a POI app and real head units filter it out anyway. This isn't believed to be fixable by manifest/category tweaks — Android Auto's launcher-visibility rules are host-controlled and restricted to a handful of verticals (navigation, parking, charging, weather, IOT), none of which a generic timer fits.
 
-- The `CarAppService` declares `androidx.car.app.category.POI` (IOT is filtered out of the projected launcher by most real head units; POI is the least-wrong Auto-allowed category for a sideloaded timer). This is for sideloaded/development use only; Android Auto category support is host-controlled and not Play-publishable for this timer app without a different product shape.
-- `TimerCarAppService.createHostValidator()` returns `HostValidator.ALLOW_ALL_HOSTS_VALIDATOR`. Useful for development; replace with the strict validator before any production release.
-
-For personal/sideloaded use these are fine. To use it in your own car: enable developer mode in the Android Auto app on your phone, then add this app from "Unknown sources".
+Given that, the plan is to **not** chase launcher visibility further and instead rely on the shorter-chime-when-connected behaviour (see above), which works independently of the launcher via `androidx.car.app.connection.CarConnection`. The now-unreachable `TimerCarAppService`/`TimerCarScreen` code — plus its manifest entries (`automotive_app_desc.xml`, the `com.google.android.gms.car.application` meta-data, the `TimerCarAppService` `<service>`) — is left in place for now but tracked for removal in [#18](https://github.com/kimptoc/chimer/issues/18). It also still uses `HostValidator.ALLOW_ALL_HOSTS_VALIDATOR`, which would need hardening before any production use, but that's moot if the code comes out.
 
 ## Project docs
 
