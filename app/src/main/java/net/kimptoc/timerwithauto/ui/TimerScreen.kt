@@ -1,6 +1,7 @@
 package net.kimptoc.timerwithauto.ui
 
 import android.Manifest
+import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -34,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -96,11 +100,7 @@ private fun IdleView(
     val pick: (Int) -> Unit = { userPicked = true; minutes = it }
     val isPinned = minutes in pinned
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    val controls: @Composable () -> Unit = {
         Text("Chimer", style = MaterialTheme.typography.headlineSmall)
 
         MinutesPicker(value = minutes, onValueChange = pick)
@@ -121,15 +121,51 @@ private fun IdleView(
         if (recents.isNotEmpty()) {
             DurationChips(title = "Recent:", durations = recents, onSelect = pick)
         }
+    }
 
-        Spacer(Modifier.height(8.dp))
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-        Button(
-            onClick = { onStart(minutes) },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+    if (isLandscape) {
+        // Landscape is short: keep START visible on the right, scroll the controls on the left.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Text("START", fontSize = 18.sp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            ) {
+                controls()
+            }
+            StartButton(
+                onClick = { onStart(minutes) },
+                modifier = Modifier.weight(1f).height(96.dp),
+            )
         }
+    } else {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+        ) {
+            controls()
+
+            Spacer(Modifier.height(8.dp))
+
+            StartButton(
+                onClick = { onStart(minutes) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StartButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Button(onClick = onClick, modifier = modifier) {
+        Text("START", fontSize = 18.sp)
     }
 }
 
