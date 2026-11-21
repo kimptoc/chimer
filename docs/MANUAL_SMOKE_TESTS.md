@@ -26,12 +26,10 @@ before each release.
 - [ ] Start 30 min, leave phone idle overnight (Doze) → alarm fires on time.
 
 ## Android Auto — via DHU or real head unit
-- [ ] Open Timer With Auto in Auto launcher → Idle template ("Start from phone").
-- [ ] Start a 2 min timer from phone → Auto switches to countdown ticking each
-      second, Cancel action visible.
-- [ ] Tap Cancel on Auto → phone returns to Idle.
-- [ ] Start 1 min, wait → Auto switches to "Timer finished" with red STOP.
-- [ ] Tap STOP on Auto → audio stops, both surfaces return to Idle.
+- [ ] Connect phone to Android Auto, start 1 min, wait → shorter car chime plays
+      and auto-stops after ~15 s; phone returns to Idle.
+- [ ] Disconnect from Android Auto, start 1 min, wait → normal chime plays
+      (auto-stops after 2 min).
 
 ## Permissions / edge
 - [ ] Deny POST_NOTIFICATIONS → start 1 min → audio + vibration still play; no
