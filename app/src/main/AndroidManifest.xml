@@ -20,14 +20,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TimerWithAuto">
 
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
-
-        <meta-data
-            android:name="androidx.car.app.minCarApiLevel"
-            android:value="1" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -46,15 +38,6 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Plays a looping alarm sound when a user-set countdown timer expires." />
-        </service>
-
-        <service
-            android:name=".car.TimerCarAppService"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.car.app.CarAppService" />
-                <category android:name="androidx.car.app.category.POI" />
-            </intent-filter>
         </service>
 
         <receiver
