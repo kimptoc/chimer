@@ -1,8 +1,10 @@
 package net.kimptoc.timerwithauto.alarm
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
@@ -21,8 +23,9 @@ import net.kimptoc.timerwithauto.timer.TimerState
  * (docs/superpowers/specs/2026-07-31-status-bar-live-update-chip-design.md) for why.
  *
  * Running  -> if promotable, post the promoted-ongoing notification once; otherwise
- *             activate the media session with PlaybackState PLAYING and post the
- *             media-style notification on a periodic refresh loop
+ *             activate the media session with PlaybackState PLAYING and re-post the
+ *             media-style notification every second (the title is the countdown), held
+ *             alive by [CountdownService]
  * Idle     -> deactivate session, cancel notification
  * Ringing  -> deactivate session, cancel notification (AlarmService's ringing notification takes over)
  */
@@ -46,13 +49,19 @@ class RunningTimerNotifier(
                             // chronometer itself, so one post is enough.
                             postPromoted(state)
                         } else {
-                            // One UI's Now Bar pill drops the entry once the MediaSession's
-                            // interpolated position passes duration, and some launchers GC the
-                            // ongoing notification if it isn't re-posted. Refresh
-                            // periodically to keep the pill alive for the full countdown.
+                            // The countdown is the title (and One UI's chip text), so re-post
+                            // on each whole-second boundary. This also keeps the Now Bar pill
+                            // alive: One UI drops it once the session's interpolated position
+                            // passes duration, and some launchers GC un-refreshed ongoing
+                            // notifications. CountdownService stops the process being frozen
+                            // in the background, which would stall this loop.
+                            startKeepAlive()
                             while (isActive) {
-                                postMediaStyle(state)
-                                delay(REFRESH_INTERVAL_MS)
+                                val remainingMs = state.deadlineEpochMs - clock.nowEpochMs()
+                                postMediaStyle(state, remainingMs)
+                                if (remainingMs <= 0L) break
+                                val toNextSecond = remainingMs % 1000L
+                                delay(if (toNextSecond == 0L) 1000L else toNextSecond)
                             }
                         }
                     }
@@ -62,7 +71,42 @@ class RunningTimerNotifier(
         }
     }
 
-    private fun postMediaStyle(state: TimerState.Running) {
+    /**
+     * Starts [CountdownService] so the process stays out of the cached/frozen state while
+     * the countdown runs. The service stops itself once the state leaves Running.
+     * Best effort: a background start can be refused (e.g. state restored in a background
+     * process); the notification is still posted, it just may not tick while frozen.
+     */
+    private fun startKeepAlive() {
+        try {
+            context.startForegroundService(Intent(context, CountdownService::class.java))
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "CountdownService start refused", e)
+        }
+    }
+
+    /** The notification for [state] as it should look right now; used by [CountdownService]. */
+    fun currentNotification(state: TimerState.Running): Notification {
+        val remainingMs = state.deadlineEpochMs - clock.nowEpochMs()
+        return if (Notifier.canPromote(context)) {
+            Notifier.buildRunningPromotedNotification(
+                context = context,
+                durationMinutes = state.durationMinutes,
+                deadlineEpochMs = state.deadlineEpochMs,
+                cancelIntent = cancelPendingIntent(),
+            )
+        } else {
+            Notifier.buildRunningNotification(
+                context = context,
+                durationMinutes = state.durationMinutes,
+                remainingMs = remainingMs,
+                sessionToken = mediaSession.sessionToken,
+                cancelIntent = cancelPendingIntent(),
+            )
+        }
+    }
+
+    private fun postMediaStyle(state: TimerState.Running, remainingMs: Long) {
         if (!nm.areNotificationsEnabled()) return
         val totalMs = state.durationMinutes * 60_000L
         val elapsedMs = (clock.nowEpochMs() - (state.deadlineEpochMs - totalMs))
@@ -70,12 +114,13 @@ class RunningTimerNotifier(
         mediaSession.activateRunning(
             durationMs = totalMs,
             elapsedMs = elapsedMs,
-            title = context.getString(R.string.notif_running_title),
+            title = Notifier.formatRemaining(remainingMs),
         )
         val cancelPi = cancelPendingIntent()
         val notif = Notifier.buildRunningNotification(
             context = context,
             durationMinutes = state.durationMinutes,
+            remainingMs = remainingMs,
             sessionToken = mediaSession.sessionToken,
             cancelIntent = cancelPi,
         )
@@ -116,8 +161,7 @@ class RunningTimerNotifier(
     }
 
     companion object {
+        private const val TAG = "RunningTimerNotifier"
         private const val REQ_CANCEL = 4001
-        // Guess; not benchmarked. Tighten if One UI still drops the pill.
-        private const val REFRESH_INTERVAL_MS = 20_000L
     }
 }
