@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import net.kimptoc.timerwithauto.alarm.AudioPlayer
 import net.kimptoc.timerwithauto.alarm.CarConnectionChecker
 import net.kimptoc.timerwithauto.alarm.MediaPlayerAudioPlayer
@@ -31,7 +32,9 @@ class AppContainer(context: Context) {
     val audioPlayer: AudioPlayer = MediaPlayerAudioPlayer(context.applicationContext)
     val vibratorWrapper: VibratorWrapper = SystemVibratorWrapper(context.applicationContext)
     val carConnectionChecker: CarConnectionChecker = SystemCarConnectionChecker(context.applicationContext)
-    val timerMediaSession: TimerMediaSession = TimerMediaSession(context.applicationContext)
+    val timerMediaSession: TimerMediaSession = TimerMediaSession(context.applicationContext) {
+        applicationScope.launch { timerRepository.cancelTimer() }
+    }
     val runningTimerNotifier: RunningTimerNotifier = RunningTimerNotifier(
         context = context.applicationContext,
         repository = timerRepository,
