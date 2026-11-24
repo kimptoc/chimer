@@ -7,12 +7,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.text.format.DateFormat
 import android.support.v4.media.session.MediaSessionCompat
 import androidx.car.app.notification.CarNotificationManager
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import net.kimptoc.timerwithauto.MainActivity
 import net.kimptoc.timerwithauto.R
+import java.util.Date
 
 object Notifier {
 
@@ -119,16 +121,16 @@ object Notifier {
         context: Context,
         durationMinutes: Int,
         deadlineEpochMs: Long,
-        remainingMs: Long,
         cancelIntent: PendingIntent,
     ): Notification {
-        // The remaining time is the title so it renders in the large, bold line of the
-        // expanded notification; the header chronometer is small and easy to miss. The
-        // title is static text, so RunningTimerNotifier re-posts this once per second.
+        // The system ticks the countdown in the header and the status-bar chip (One UI
+        // only shows a chip for a chronometer), so the title shows the end time rather
+        // than duplicating the countdown; both are static, so one post is enough.
+        val endTime = DateFormat.getTimeFormat(context).format(Date(deadlineEpochMs))
         return NotificationCompat.Builder(context, CHANNEL_RUNNING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(formatRemaining(remainingMs))
-            .setContentText(context.getString(R.string.notif_running_text_countdown, durationMinutes))
+            .setContentTitle(context.getString(R.string.notif_running_title_ends, endTime))
+            .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -141,21 +143,10 @@ object Notifier {
                 cancelIntent,
             )
             .setRequestPromotedOngoing(true)
-            // No header chronometer: it duplicated the title countdown. The status-bar
-            // chip shows the same text instead, refreshed by the once-per-second re-post.
-            .setShortCriticalText(formatRemaining(remainingMs))
             .setWhen(deadlineEpochMs)
-            .setShowWhen(false)
+            .setUsesChronometer(true)
+            .setChronometerCountDown(true)
             .build()
-    }
-
-    /** Formats a countdown as M:SS, or H:MM:SS once it is an hour or more. Rounds up. */
-    fun formatRemaining(remainingMs: Long): String {
-        val totalSec = (remainingMs.coerceAtLeast(0L) + 999L) / 1000L
-        val h = totalSec / 3600
-        val m = (totalSec % 3600) / 60
-        val s = totalSec % 60
-        return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
     }
 
     fun buildRingingNotification(context: Context, stopIntent: PendingIntent): Notification {
