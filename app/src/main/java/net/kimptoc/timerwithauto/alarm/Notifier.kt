@@ -71,6 +71,10 @@ object Notifier {
 
     fun canPromote(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return false
+        // One UI renders promoted notifications as a card in the shade but never gives them
+        // a status-bar chip; only its own "ongoing activities" (media sessions, sports, ...)
+        // get one. The media-style path does, so prefer it on Samsung (issue #29).
+        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return false
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         return nm.canPostPromotedNotifications()
     }
@@ -78,6 +82,7 @@ object Notifier {
     fun buildRunningNotification(
         context: Context,
         durationMinutes: Int,
+        remainingMs: Long,
         sessionToken: MediaSessionCompat.Token,
         cancelIntent: PendingIntent,
     ): Notification {
@@ -89,7 +94,9 @@ object Notifier {
 
         return NotificationCompat.Builder(context, CHANNEL_RUNNING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(context.getString(R.string.notif_running_title))
+            // The countdown is the title: it's the bold line in the shade and the text
+            // One UI shows in the status-bar chip. RunningTimerNotifier re-posts each second.
+            .setContentTitle(formatRemaining(remainingMs))
             .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -147,6 +154,15 @@ object Notifier {
             .setUsesChronometer(true)
             .setChronometerCountDown(true)
             .build()
+    }
+
+    /** Formats a countdown as M:SS, or H:MM:SS once it is an hour or more. Rounds up. */
+    fun formatRemaining(remainingMs: Long): String {
+        val totalSec = (remainingMs.coerceAtLeast(0L) + 999L) / 1000L
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = totalSec % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
     }
 
     fun buildRingingNotification(context: Context, stopIntent: PendingIntent): Notification {
