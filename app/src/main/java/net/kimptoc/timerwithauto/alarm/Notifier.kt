@@ -7,12 +7,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.text.format.DateFormat
 import android.support.v4.media.session.MediaSessionCompat
 import androidx.car.app.notification.CarNotificationManager
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import net.kimptoc.timerwithauto.MainActivity
 import net.kimptoc.timerwithauto.R
+import java.util.Date
 
 object Notifier {
 
@@ -121,9 +123,13 @@ object Notifier {
         deadlineEpochMs: Long,
         cancelIntent: PendingIntent,
     ): Notification {
+        // The system ticks the countdown in the header and the status-bar chip (One UI
+        // only shows a chip for a chronometer), so the title shows the end time rather
+        // than duplicating the countdown; both are static, so one post is enough.
+        val endTime = DateFormat.getTimeFormat(context).format(Date(deadlineEpochMs))
         return NotificationCompat.Builder(context, CHANNEL_RUNNING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(context.getString(R.string.notif_running_title))
+            .setContentTitle(context.getString(R.string.notif_running_title_ends, endTime))
             .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
