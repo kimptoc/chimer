@@ -125,7 +125,6 @@ object Notifier {
         // The remaining time is the title so it renders in the large, bold line of the
         // expanded notification; the header chronometer is small and easy to miss. The
         // title is static text, so RunningTimerNotifier re-posts this once per second.
-        // The chronometer stays so the status-bar Live Update chip keeps ticking.
         return NotificationCompat.Builder(context, CHANNEL_RUNNING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(formatRemaining(remainingMs))
@@ -142,9 +141,11 @@ object Notifier {
                 cancelIntent,
             )
             .setRequestPromotedOngoing(true)
+            // No header chronometer: it duplicated the title countdown. The status-bar
+            // chip shows the same text instead, refreshed by the once-per-second re-post.
+            .setShortCriticalText(formatRemaining(remainingMs))
             .setWhen(deadlineEpochMs)
-            .setUsesChronometer(true)
-            .setChronometerCountDown(true)
+            .setShowWhen(false)
             .build()
     }
 
