@@ -119,12 +119,17 @@ object Notifier {
         context: Context,
         durationMinutes: Int,
         deadlineEpochMs: Long,
+        remainingMs: Long,
         cancelIntent: PendingIntent,
     ): Notification {
+        // The remaining time is the title so it renders in the large, bold line of the
+        // expanded notification; the header chronometer is small and easy to miss. The
+        // title is static text, so RunningTimerNotifier re-posts this once per second.
+        // The chronometer stays so the status-bar Live Update chip keeps ticking.
         return NotificationCompat.Builder(context, CHANNEL_RUNNING)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(context.getString(R.string.notif_running_title))
-            .setContentText(context.getString(R.string.notif_running_text_set, durationMinutes))
+            .setContentTitle(formatRemaining(remainingMs))
+            .setContentText(context.getString(R.string.notif_running_text_countdown, durationMinutes))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -141,6 +146,15 @@ object Notifier {
             .setUsesChronometer(true)
             .setChronometerCountDown(true)
             .build()
+    }
+
+    /** Formats a countdown as M:SS, or H:MM:SS once it is an hour or more. Rounds up. */
+    fun formatRemaining(remainingMs: Long): String {
+        val totalSec = (remainingMs.coerceAtLeast(0L) + 999L) / 1000L
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = totalSec % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
     }
 
     fun buildRingingNotification(context: Context, stopIntent: PendingIntent): Notification {

@@ -20,7 +20,8 @@ import net.kimptoc.timerwithauto.timer.TimerState
  * notification accordingly. Branches on [Notifier.canPromote] — see the design spec
  * (docs/superpowers/specs/2026-07-31-status-bar-live-update-chip-design.md) for why.
  *
- * Running  -> if promotable, post the promoted-ongoing notification once; otherwise
+ * Running  -> if promotable, post the promoted-ongoing notification every second (the
+ *             title carries the remaining time); otherwise
  *             activate the media session with PlaybackState PLAYING and post the
  *             media-style notification on a periodic refresh loop
  * Idle     -> deactivate session, cancel notification
@@ -42,9 +43,16 @@ class RunningTimerNotifier(
                 when (state) {
                     is TimerState.Running -> coroutineScope {
                         if (Notifier.canPromote(context)) {
-                            // Android 16+ Live Update chip: the system ticks the
-                            // chronometer itself, so one post is enough.
-                            postPromoted(state)
+                            // Android 16+ Live Update: the system ticks the chip's
+                            // chronometer itself, but the big countdown in the title is
+                            // plain text, so re-post on each whole-second boundary.
+                            while (isActive) {
+                                val remainingMs = state.deadlineEpochMs - clock.nowEpochMs()
+                                postPromoted(state, remainingMs)
+                                if (remainingMs <= 0L) break
+                                val toNextSecond = remainingMs % 1000L
+                                delay(if (toNextSecond == 0L) 1000L else toNextSecond)
+                            }
                         } else {
                             // One UI's Now Bar pill drops the entry once the MediaSession's
                             // interpolated position passes duration, and some launchers GC the
@@ -95,12 +103,13 @@ class RunningTimerNotifier(
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    private fun postPromoted(state: TimerState.Running) {
+    private fun postPromoted(state: TimerState.Running, remainingMs: Long) {
         if (!nm.areNotificationsEnabled()) return
         val notif = Notifier.buildRunningPromotedNotification(
             context = context,
             durationMinutes = state.durationMinutes,
             deadlineEpochMs = state.deadlineEpochMs,
+            remainingMs = remainingMs,
             cancelIntent = cancelPendingIntent(),
         )
         try {
