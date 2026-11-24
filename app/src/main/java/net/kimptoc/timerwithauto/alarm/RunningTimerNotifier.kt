@@ -1,8 +1,10 @@
 package net.kimptoc.timerwithauto.alarm
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
@@ -42,10 +44,12 @@ class RunningTimerNotifier(
             repository.state.collectLatest { state ->
                 when (state) {
                     is TimerState.Running -> coroutineScope {
+                        startKeepAlive()
                         if (Notifier.canPromote(context)) {
-                            // Android 16+ Live Update: the system ticks the chip's
-                            // chronometer itself, but the big countdown in the title is
-                            // plain text, so re-post on each whole-second boundary.
+                            // Android 16+ Live Update: the countdown in the title and the
+                            // status-bar chip is plain text, so re-post on each whole-second
+                            // boundary. CountdownService keeps the process from being frozen
+                            // so this loop keeps running in the background.
                             while (isActive) {
                                 val remainingMs = state.deadlineEpochMs - clock.nowEpochMs()
                                 postPromoted(state, remainingMs)
@@ -69,6 +73,39 @@ class RunningTimerNotifier(
             }
         }
     }
+
+    /**
+     * Starts [CountdownService] so the process stays out of the cached/frozen state while
+     * the countdown runs. The service stops itself once the state leaves Running.
+     * Best effort: a background start can be refused (e.g. state restored in a background
+     * process); the notification is still posted, it just may not tick while frozen.
+     */
+    private fun startKeepAlive() {
+        try {
+            context.startForegroundService(Intent(context, CountdownService::class.java))
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "CountdownService start refused", e)
+        }
+    }
+
+    /** The notification for [state] as it should look right now; used by [CountdownService]. */
+    fun currentNotification(state: TimerState.Running): Notification =
+        if (Notifier.canPromote(context)) {
+            Notifier.buildRunningPromotedNotification(
+                context = context,
+                durationMinutes = state.durationMinutes,
+                deadlineEpochMs = state.deadlineEpochMs,
+                remainingMs = state.deadlineEpochMs - clock.nowEpochMs(),
+                cancelIntent = cancelPendingIntent(),
+            )
+        } else {
+            Notifier.buildRunningNotification(
+                context = context,
+                durationMinutes = state.durationMinutes,
+                sessionToken = mediaSession.sessionToken,
+                cancelIntent = cancelPendingIntent(),
+            )
+        }
 
     private fun postMediaStyle(state: TimerState.Running) {
         if (!nm.areNotificationsEnabled()) return
@@ -125,6 +162,7 @@ class RunningTimerNotifier(
     }
 
     companion object {
+        private const val TAG = "RunningTimerNotifier"
         private const val REQ_CANCEL = 4001
         // Guess; not benchmarked. Tighten if One UI still drops the pill.
         private const val REFRESH_INTERVAL_MS = 20_000L
