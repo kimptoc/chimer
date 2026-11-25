@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import androidx.annotation.VisibleForTesting
 import net.kimptoc.timerwithauto.R
 
 /**
@@ -21,21 +22,21 @@ class TimerMediaSession(context: Context, onCancel: () -> Unit) {
 
     private val cancelLabel = context.getString(R.string.notif_action_cancel)
 
+    @VisibleForTesting
+    internal val callback = object : MediaSessionCompat.Callback() {
+        override fun onCustomAction(action: String?, extras: Bundle?) {
+            if (action == CUSTOM_ACTION_CANCEL) onCancel()
+        }
+    }
+
     private val session = MediaSessionCompat(context, "TimerWithAuto").apply {
         setFlags(0)
         // The Now Bar / media controls build their buttons from the session's playback
         // actions, not the notification's actions, so Cancel is offered as a custom action.
         // Reserving the prev/next slots (left empty) moves custom actions out of the compact
         // controls, so Cancel only shows once the pill / player is expanded.
-        setExtras(Bundle().apply {
-            putBoolean(SLOT_RESERVATION_SKIP_TO_PREV, true)
-            putBoolean(SLOT_RESERVATION_SKIP_TO_NEXT, true)
-        })
-        setCallback(object : MediaSessionCompat.Callback() {
-            override fun onCustomAction(action: String?, extras: Bundle?) {
-                if (action == CUSTOM_ACTION_CANCEL) onCancel()
-            }
-        })
+        setExtras(slotReservationExtras())
+        setCallback(callback)
     }
 
     val sessionToken: MediaSessionCompat.Token = session.sessionToken
@@ -46,11 +47,7 @@ class TimerMediaSession(context: Context, onCancel: () -> Unit) {
      * pill / chip will fill from 0 to 100% as the timer runs.
      */
     fun activateRunning(durationMs: Long, elapsedMs: Long, title: String) {
-        val metadata = MediaMetadataCompat.Builder()
-            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
-            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs)
-            .build()
-        session.setMetadata(metadata)
+        session.setMetadata(runningMetadata(durationMs, title))
 
         val playback = PlaybackStateCompat.Builder()
             .setActions(0L)
@@ -83,8 +80,20 @@ class TimerMediaSession(context: Context, onCancel: () -> Unit) {
         session.release()
     }
 
-    private companion object {
+    internal companion object {
         const val CUSTOM_ACTION_CANCEL = "net.kimptoc.timerwithauto.action.SESSION_CANCEL"
+
+        fun runningMetadata(durationMs: Long, title: String): MediaMetadataCompat =
+            MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
+                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs)
+                .build()
+
+        fun slotReservationExtras(): Bundle = Bundle().apply {
+            putBoolean(SLOT_RESERVATION_SKIP_TO_PREV, true)
+            putBoolean(SLOT_RESERVATION_SKIP_TO_NEXT, true)
+        }
+
         // androidx.media3 MediaConstants values; spelled out to avoid the media3 dependency.
         const val SLOT_RESERVATION_SKIP_TO_PREV =
             "android.media.playback.ALWAYS_RESERVE_SPACE_FOR.ACTION_SKIP_TO_PREVIOUS"

@@ -69,14 +69,25 @@ object Notifier {
         }
     }
 
-    fun canPromote(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) return false
+    fun canPromote(context: Context): Boolean = canPromote(
+        sdkInt = Build.VERSION.SDK_INT,
+        manufacturer = Build.MANUFACTURER,
+        canPostPromoted = {
+            // Already guarded by the pure overload; repeated here so lint sees the API check.
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA &&
+                (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                    .canPostPromotedNotifications()
+        },
+    )
+
+    /** Pure decision behind [canPromote]; [canPostPromoted] is only called on API 36+. */
+    internal fun canPromote(sdkInt: Int, manufacturer: String?, canPostPromoted: () -> Boolean): Boolean {
+        if (sdkInt < Build.VERSION_CODES.BAKLAVA) return false
         // One UI renders promoted notifications as a card in the shade but never gives them
         // a status-bar chip; only its own "ongoing activities" (media sessions, sports, ...)
         // get one. The media-style path does, so prefer it on Samsung (issue #29).
-        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return false
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        return nm.canPostPromotedNotifications()
+        if (manufacturer.equals("samsung", ignoreCase = true)) return false
+        return canPostPromoted()
     }
 
     fun buildRunningNotification(
