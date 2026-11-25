@@ -20,11 +20,11 @@ class BootReceiver : BroadcastReceiver() {
         val duration = snap.durationMinutes ?: return
         val now = container.clock.nowEpochMs()
 
-        when {
-            deadline > now -> {
+        when (decide(deadline, now)) {
+            BootAction.RESCHEDULE -> {
                 container.scheduler.schedule(deadline)
             }
-            now - deadline <= MISSED_GRACE_MS -> {
+            BootAction.RING_NOW -> {
                 // Recently missed — clear and ring immediately.
                 runBlocking { container.timerRepository.cancelTimer() }
                 val svc = Intent(context, AlarmService::class.java).apply {
@@ -36,14 +36,23 @@ class BootReceiver : BroadcastReceiver() {
                     context.startService(svc)
                 }
             }
-            else -> {
+            BootAction.DISCARD -> {
                 // Old enough that the user has moved on.
                 runBlocking { container.timerRepository.cancelTimer() }
             }
         }
     }
 
+    enum class BootAction { RESCHEDULE, RING_NOW, DISCARD }
+
     companion object {
-        private const val MISSED_GRACE_MS = 60L * 60L * 1000L  // 1 hour
+        internal const val MISSED_GRACE_MS = 60L * 60L * 1000L  // 1 hour
+
+        /** What to do with a persisted [deadline] found at boot time [now]. */
+        internal fun decide(deadline: Long, now: Long): BootAction = when {
+            deadline > now -> BootAction.RESCHEDULE
+            now - deadline <= MISSED_GRACE_MS -> BootAction.RING_NOW
+            else -> BootAction.DISCARD
+        }
     }
 }
